@@ -291,4 +291,42 @@ end;
 -- FA EXCEPTIILE POSIBILE
 
 
---ex 10
+--10 trigger la nivel de instructiune : nu se pot adauga copii decat intre orele 8-18
+
+create or replace trigger ex_10
+    before insert on copy_title
+BEGIN
+    if (TO_CHAR(SYSDATE,'D') =1)
+        OR (TO_CHAR(SYSDATE,'HH24') NOT BETWEEN 8 AND 18)
+    THEN
+    raise_application_error(-20001,'Nu poti updata in afara orelor de munca');
+    end if;
+END;
+
+INSERT INTO copy_title values (seq_copy_title.nextval,10);
+
+--11 trigger la nivel de linie
+
+create or replace trigger ex_11
+    before update of price on title
+    for each row
+begin
+    if (:NEW.price > :OLD.price)
+    then
+    raise_application_error(-20001,'Nu poti creste pretul titlurilor');
+    end if;
+end;
+
+update title
+set price=price+price*0.05;
+
+--12 trigger LDD
+
+create or replace trigger ex_12  
+    BEFORE DROP ON DATABASE
+BEGIN
+    raise_application_error(-20001,'Opriti triggeru-ul ex-12 inainte de a sterge un tabel.');   
+END;
+
+drop table address;
+
