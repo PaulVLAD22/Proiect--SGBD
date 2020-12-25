@@ -1,4 +1,4 @@
--- CREATING TABLES
+ -- CREATING TABLES
 
 drop table title cascade constraints;
 drop table authors cascade constraints;
@@ -48,8 +48,11 @@ CREATE TABLE member(
   last_name varchar2(20) constraint member_last_name_nn NOT NULL,
   address_id number(10) constraint member_address_fk REFERENCES address(address_id) ON DELETE CASCADE,
   phone_number number(10) constraint member_phone_number_nn NOT NULL,
-  join_date date constraint member_join_date_nn NOT NULL
+  join_date date constraint member_join_date_nn NOT NULL,
+  balance number(10) default 0
 );
+
+
 CREATE TABLE address(
     address_id number(10) constraint address_pk PRIMARY KEY,
     city varchar2(20) constraint address_city_nn not null,
@@ -65,10 +68,11 @@ CREATE TABLE rental(
   book_date date,
   copy_id  constraint rental_copy_id_fk REFERENCES copy_title(copy_id) ON DELETE CASCADE,
   member_id constraint rental_member_id_fk REFERENCES member(member_id) ON DELETE CASCADE,
-  act_ret_date date,
+  act_ret_date date default null,
   exp_ret_date date,
   CONSTRAINT rental_pk PRIMARY KEY (rental_id)
 );
+
 
 
 describe title;
@@ -173,7 +177,7 @@ INSERT INTO rental values (seq_rental.nextval,SYSDATE,1,7,TO_DATE('2020-11-15','
 INSERT INTO rental values (seq_rental.nextval,TO_DATE('2019-05-02','YYYY-MM-DD'),2,8,SYSDATE,TO_DATE('2019-12-15','YYYY-MM-DD'));
 INSERT INTO rental values (seq_rental.nextval,TO_DATE('2020-01-05','YYYY-MM-DD'),3,9,TO_DATE('2020-12-10','YYYY-MM-DD'),SYSDATE);
 INSERT INTO rental (rental_id,book_date,copy_id,member_id,exp_ret_date) values (seq_rental.nextval,SYSDATE,4,10,TO_DATE('2021-01-10','YYYY-MM-DD'));
-
+select * from rental;
 INSERT INTO address values (seq_address.nextval,'Bucharest','Ion Mihalache');
 INSERT INTO address (address_id,city) values (seq_address.nextval,'Bucharest');
 INSERT INTO address values (seq_address.nextval,'Cluj','Nicolae Grigorescu');
@@ -299,26 +303,28 @@ BEGIN
     if (TO_CHAR(SYSDATE,'D') =1)
         OR (TO_CHAR(SYSDATE,'HH24') NOT BETWEEN 8 AND 18)
     THEN
-    raise_application_error(-20001,'Nu poti updata in afara orelor de munca');
+    raise_application_error(-20001,'Nu poti insera copii in afara orelor de munca');
     end if;
 END;
 
-INSERT INTO copy_title values (seq_copy_title.nextval,10);
+begin 
+    insert_copies(5,10);
+end;
 
 --11 trigger la nivel de linie
 
 create or replace trigger ex_11
-    before update of price on title
+    before update of price_per_day on title
     for each row
 begin
-    if (:NEW.price > :OLD.price)
+    if (:NEW.price_per_day > :OLD.price_per_day)
     then
     raise_application_error(-20001,'Nu poti creste pretul titlurilor');
     end if;
 end;
 
 update title
-set price=price+price*0.05;
+set price_per_day=2*price_per_day;
 
 --12 trigger LDD
 
@@ -329,4 +335,118 @@ BEGIN
 END;
 
 drop table address;
+
+
+-- pentru utilitatea librariei
+
+--procedura de inserat x copii pt titlu y
+
+create or replace procedure insert_copies (copy_nr in number,id_title in title.title_id%type)
+is 
+begin
+    for i in 1..copy_nr
+    loop
+    INSERT INTO copy_title values (seq_copy_title.nextval,id_title);
+    end loop;
+end;
+
+
+--cand se face un rent sa se adauge la balansul membrului -pret*numarZile 
+
+create or replace procedure rent (id_title in title.title_id%type,id_member in member.member_id%type,exp_days_rented in int)
+is
+    v_price title.price_per_day%type;
+    type copies is table of copy_title.copy_id%type;
+    t_copies copies;
+    v_copy_to_give number :=-1;
+    v_copy_ordered number :=1;
+begin 
+    
+    select copy_id
+    bulk collect into t_copies
+    from copy_title
+    where title_id=id_title;
+    
+    for i in t_copies.first..t_copies.last
+    loop
+        v_copy_ordered:=1;
+        select count(*)
+        into v_copy_ordered
+        from rental
+        where 
+        copy_id=t_copies(i)
+        and
+        act_ret_date is null;
+        if (v_copy_ordered = 0) then 
+            v_copy_to_give:=t_copies(i);
+        end if;
+    end loop;
+        
+    
+    insert into rental (rental_id,book_date,copy_id,member_id,exp_ret_date) values (seq_rental.nextval,sysdate,v_copy_to_give,id_member,sysdate+exp_days_rented);
+    
+    select price_per_day
+    into v_price
+    from title
+    where title_id=id_title;
+    
+    update member
+    set balance = balance - exp_days_rented*v_price
+    where member_id = id_member;
+    
+end;
+BEGIN    
+rent(1,7,20);
+end;
+
+select * from rental;
+select * from title;
+select * from member;
+
+--cand o intoarce se adauga pret*expectedZile - pret*(act_ret_date-exp_ret_date)
+create or replace procedure returnBook (id_title in title.title_id%type,id_member in member.member_id%type)
+is
+    v_exp_date rental.exp_ret_date%type;
+    v_book_date rental.book_date%type;
+    v_price_per_day title.price_per_day%type;
+begin
+    select exp_ret_date,book_date
+    into v_exp_date,v_book_date
+    from rental
+    where member_id=id_member
+    and act_ret_date is null
+    and copy_id in (select copy_id
+                    from copy_title
+                    where title_id=id_title);
+    select price_per_day
+    into v_price_per_day
+    from title
+    where title_id=id_title;
+    
+    update rental 
+    set act_ret_date=sysdate
+    where member_id=id_member
+    and act_ret_date is null
+    and copy_id in (select copy_id
+                    from copy_title
+                    where title_id=id_title);
+    
+    update member
+        set balance = balance+ v_price_per_day*(v_exp_date-v_book_date);
+    if (sysdate>v_exp_date) then 
+        update member
+        set balance = balance - v_price_per_day*(sysdate-v_exp_date);
+    end if;
+end;
+begin 
+    returnBook(1,7);
+end;
+-- trateaza exceptia in care nu avea nimic order-uit member-ul respectiv
+
+
+
+-- o solutie pt oamenii care nu intorc deloc cartile
+
+
+
 
