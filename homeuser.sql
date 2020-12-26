@@ -47,11 +47,10 @@ CREATE TABLE member(
   first_name varchar2(20) constraint member_first_name_nn NOT NULL,
   last_name varchar2(20) constraint member_last_name_nn NOT NULL,
   address_id number(10) constraint member_address_fk REFERENCES address(address_id) ON DELETE CASCADE,
-  phone_number number(10) constraint member_phone_number_nn NOT NULL,
+  phone_number varchar2(20) constraint member_phone_number_nn NOT NULL,
   join_date date constraint member_join_date_nn NOT NULL,
   balance number(10) default 0
 );
-
 
 CREATE TABLE address(
     address_id number(10) constraint address_pk PRIMARY KEY,
@@ -71,6 +70,11 @@ CREATE TABLE rental(
   act_ret_date date default null,
   exp_ret_date date,
   CONSTRAINT rental_pk PRIMARY KEY (rental_id)
+);
+CREATE TABLE transaction(
+  transaction_id number(10),
+  member_id constraint transaction_member_id_fk references member(member_id) on delete cascade,
+  transcation_description varchar2(128)
 );
 
 
@@ -110,7 +114,7 @@ CREATE SEQUENCE seq_member MINVALUE 1 START WITH 1 INCREMENT BY 1 CACHE 10;
 CREATE SEQUENCE seq_copy_title MINVALUE 1 START WITH 1 INCREMENT BY 1 CACHE 10;
 CREATE SEQUENCE seq_address MINVALUE 1 START WITH 1 INCREMENT BY 1 CACHE 10;
 CREATE SEQUENCE seq_rental MINVALUE 1 START WITH 1 INCREMENT BY 1 CACHE 10;
-
+CREATE SEQUENCE seq_transaction MINVALUE 1 START WITH 1 INCREMENT BY 1 CACHE 10;
 describe title;
 PROMPT
 describe author;
@@ -142,10 +146,10 @@ INSERT INTO title VALUES (seq_title.nextval,'Cooking Desserts',50,'Cooking',TO_D
 INSERT INTO title VALUES (seq_title.nextval,'Surviving on an island',65,'Survival',TO_DATE('2020-01-12','YYYY-MM-DD'),30);
 INSERT INTO title VALUES (seq_title.nextval,'Poetry in Mihai Eminescu Style',89,'Poetry',TO_DATE('2000-02-10','YYYY-MM-DD'),99);
 
-INSERT INTO member VALUES (seq_member.nextval,'Cezara','Grigoras',1,0727587574,SYSDATE);
-INSERT INTO member VALUES (seq_member.nextval,'Gabi','Flavius',2,0721341296,TO_DATE('2010-04-02','YYYY-MM-DD'));
-INSERT INTO member VALUES (seq_member.nextval,'Edi','Sujon',2,0761413122,TO_DATE('2015-06-15','YYYY-MM-DD'));
-INSERT INTO member VALUES (seq_member.nextval,'Mario','Marian',3,02313133,SYSDATE);
+INSERT INTO member (member_id,first_name,last_name,address_id,phone_number,join_date) VALUES (seq_member.nextval,'Cezara','Grigoras',1,'0727587574',SYSDATE);
+INSERT INTO member (member_id,first_name,last_name,address_id,phone_number,join_date) VALUES (seq_member.nextval,'Gabi','Flavius',2,'0721341296',TO_DATE('2010-04-02','YYYY-MM-DD'));
+INSERT INTO member (member_id,first_name,last_name,address_id,phone_number,join_date) VALUES (seq_member.nextval,'Edi','Sujon',2,'0761413122',TO_DATE('2015-06-15','YYYY-MM-DD'));
+INSERT INTO member (member_id,first_name,last_name,address_id,phone_number,join_date) VALUES (seq_member.nextval,'Mario','Marian',3,'02313133',SYSDATE);
 
 INSERT INTO copy_title values (seq_copy_title.nextval,1);
 INSERT INTO copy_title values (seq_copy_title.nextval,2);
@@ -159,8 +163,6 @@ INSERT INTO copy_title values (seq_copy_title.nextval,4);
 INSERT INTO copy_title values (seq_copy_title.nextval,5);
 INSERT INTO copy_title values (seq_copy_title.nextval,10);
 INSERT INTO copy_title values (seq_copy_title.nextval,10);
-
-
 
 INSERT INTO title_author values (1,1);
 INSERT INTO title_author values (2,2);
@@ -177,7 +179,7 @@ INSERT INTO rental values (seq_rental.nextval,SYSDATE,1,7,TO_DATE('2020-11-15','
 INSERT INTO rental values (seq_rental.nextval,TO_DATE('2019-05-02','YYYY-MM-DD'),2,8,SYSDATE,TO_DATE('2019-12-15','YYYY-MM-DD'));
 INSERT INTO rental values (seq_rental.nextval,TO_DATE('2020-01-05','YYYY-MM-DD'),3,9,TO_DATE('2020-12-10','YYYY-MM-DD'),SYSDATE);
 INSERT INTO rental (rental_id,book_date,copy_id,member_id,exp_ret_date) values (seq_rental.nextval,SYSDATE,4,10,TO_DATE('2021-01-10','YYYY-MM-DD'));
-select * from rental;
+
 INSERT INTO address values (seq_address.nextval,'Bucharest','Ion Mihalache');
 INSERT INTO address (address_id,city) values (seq_address.nextval,'Bucharest');
 INSERT INTO address values (seq_address.nextval,'Cluj','Nicolae Grigorescu');
@@ -188,28 +190,24 @@ INSERT INTO address (address_id,city) values (seq_address.nextval,'Brasov');
 
 
 -- 6. 
-create type nume_carti is table of varchar2(255);
-
---functie care returneaza toate cartile scrise de un autor prin id
-create or replace function return_carti (id_author in author.author_id%type)
-return nume_carti
+-- functie care returneaza id-ul copiilor care sunt in momentul asta inchiriate
+create or replace type copies is table of number;
+create or replace function showRented 
+return copies
 is
-    return_nume_carti nume_carti := nume_carti();
+    v_returned copies :=copies();
 begin
-    select t.description
-    bulk collect into return_nume_carti
-    from title t, title_author ta
-    where id_author=ta.author_id
-    and ta.title_id=t.title_id;
-    
-    return return_nume_carti;
+    select copy_id
+    bulk collect into v_returned
+    from rental
+    where act_ret_date is null;
+    return v_returned;
 end;
 
-select return_carti(author_id)
-from author 
-where author_id=5;
+select showRented
+from dual;
 
---7 cartile scrise de autor prin id care sunt in categoria IT
+--7 cartile scrise de un autor care sunt in categoria IT
 create or replace function return_carti_IT (id_author in author.author_id%type)
 return nume_carti
 is
@@ -257,40 +255,62 @@ end;
 select return_nr_copii(author_id)
 from author
 where author_id=5;
--- DE FACUT EXCEPTIILE
+-- DE FACUT EXCEPTIILE nu exista autorul dat
 
 
---9 categoriile-titlurile pentru titlurile rent-uite de catre un membru care locuieste in oras dat
-create or replace procedure displayCategories (given_city in address.city%type)
-is 
-    v_category title.category%type;
-    v_description title.description%type;
+-- EX 9 title,copy title, rental, member, transiction
+create or replace procedure rent (id_title in title.title_id%type,id_member in member.member_id%type,exp_days_rented in int)
+is
+    v_price title.price_per_day%type;
+    type copies is table of copy_title.copy_id%type;
+    t_copies copies;
+    v_copy_to_give number :=-1;
+    v_copy_ordered number :=1;
     
-    cursor c is
-    select t.category,t.description
-    from title t
-    where t.title_id in(select title_id 
-                        from copy_title ct
-                        where ct.copy_id in (select r.copy_id 
-                                            from rental r,member m
-                                            where r.member_id=m.member_id
-                                            and m.address_id in (select address_id
-                                                                from address 
-                                                                where city=given_city)));
-begin
-    open c;
+begin 
+    
+    select copy_id
+    bulk collect into t_copies
+    from copy_title
+    where title_id=id_title;
+    
+    for i in t_copies.first..t_copies.last
     loop
-        fetch c into v_category,v_description;
-        exit when c%notfound;
-        DBMS_OUTPUT.PUT_LINE('Categorie: '|| v_category || ' - Nume: '||v_description);
+        v_copy_ordered:=1;
+        select count(*)
+        into v_copy_ordered
+        from rental
+        where 
+        copy_id=t_copies(i)
+        and
+        act_ret_date is null;
+        if (v_copy_ordered = 0) then 
+            v_copy_to_give:=t_copies(i);
+        end if;
     end loop;
-    close c;
+        
+    
+    insert into rental (rental_id,book_date,copy_id,member_id,exp_ret_date) values (seq_rental.nextval,sysdate,v_copy_to_give,id_member,sysdate+exp_days_rented);
+    
+    select price_per_day
+    into v_price
+    from title
+    where title_id=id_title;
+    
+    update member
+    set balance = balance - exp_days_rented*v_price
+    where member_id = id_member;
+    
+    insert into transactions values (seq_transctions.nextval,id_member,'Member rented copy ' ||v_copy_to_give || ', copy of title with id : ' || id_title || '->' || ' -' || exp_days_rented*v_price);
 end;
 
-
-begin
-    displayCategories('Bucharest');
+BEGIN    
+rent(1,17,20);
 end;
+
+-- exceptiile sa zicem: nu exista membrul, nu exista titlul,parametru prost bagat
+
+
 
 -- FA EXCEPTIILE POSIBILE
 
@@ -351,8 +371,7 @@ begin
 end;
 
 
---cand se face un rent sa se adauge la balansul membrului -pret*numarZile 
-
+-- rents book
 create or replace procedure rent (id_title in title.title_id%type,id_member in member.member_id%type,exp_days_rented in int)
 is
     v_price title.price_per_day%type;
@@ -394,16 +413,14 @@ begin
     set balance = balance - exp_days_rented*v_price
     where member_id = id_member;
     
-end;
-BEGIN    
-rent(1,7,20);
+    insert into transactions values (seq_transctions.nextval,id_member,'Member rented copy ' ||v_copy_to_give || ', copy of title with id : ' || id_title || '->' || ' -' || exp_days_rented*v_price);
+    
 end;
 
-select * from rental;
-select * from title;
-select * from member;
 
---cand o intoarce se adauga pret*expectedZile - pret*(act_ret_date-exp_ret_date)
+
+
+--returns book
 create or replace procedure returnBook (id_title in title.title_id%type,id_member in member.member_id%type)
 is
     v_exp_date rental.exp_ret_date%type;
@@ -444,9 +461,145 @@ end;
 -- trateaza exceptia in care nu avea nimic order-uit member-ul respectiv
 
 
+--adauga balance
+create or replace procedure addBalance (id_member in member.member_id%type,value_added in number)
+is
+begin
+    update member
+    set balance=balance+value_added
+    where member_id=id_member;
+end;
+-- view balance
+create or replace function viewBalance (id_member in member.member_id%type)
+return number
+is
+    v_balance number;
+begin
+    select balance
+    into v_balance
+    from member
+    where member_id=id_member;
+end;
 
--- o solutie pt oamenii care nu intorc deloc cartile
+--functie pentru adaugare membrii
 
+create or replace procedure createMember (name_first in varchar2,name_last in varchar2,phone in varchar2,p_city in varchar2,name_street in varchar2)
+is
+    v_address_id number :=-1;
+begin
+    if (memberExists(name_first,name_last,phone,p_city,name_street)=0) then
+    select address_id
+    into v_address_id
+    from address
+    where city=p_city
+    and street_name=name_street;
+    if (v_address_id = -1) then
+        v_address_id:=seq_address.nextval;
+        insert into address values (v_address_id,p_city,name_street);
+        insert into member (member_id,first_name,last_name,address_id,phone_number,join_date) values (seq_member.nextval,name_first,name_last,v_address_id,phone,Sysdate);
+    else
+        insert into member (member_id,first_name,last_name,address_id,phone_number,join_date) values (seq_member.nextval,name_first,name_last,v_address_id,phone,Sysdate);
+    end if;
+    DBMS_OUTPUT.put_line('Member added');
+    else
+    DBMS_OUTPUT.put_line('Member already exists');
+    end if;
+end;
+
+-- verifica daca exista membru inainte sa l bagam sau daca ma intreaba clent
+create or replace function memberExists(name_first in varchar2,name_last in varchar2,phone in varchar2,p_city in varchar2,name_street in varchar2)
+return int
+is
+    v_exists int;
+    v_address_id number :=-1;
+    v_member_id number :=-1;
+begin
+    select count(*)
+    into v_address_id
+    from address
+    where city=p_city
+    and street_name=name_street;
+    if (v_address_id =-1) then
+    return 0;
+    else
+        select count(*)
+        into v_member_id
+        from member
+        where first_name=name_first
+        and last_name=name_last
+        and phone_number=phone;
+        if (v_member_id=-1) then
+        return 0;
+        else 
+        return v_member_id;
+        end if;
+    end if;
+end;
+select * from member;
+select * from address;
+
+begin
+createMember('Cezara','Grigoras','0727587574','Bucharest','Ion Mihalache');
+end;
+-- get memberid cand a uitat contul
+create or replace function getMemberId(name_first in varchar2,name_last in varchar2,phone in varchar2,p_city in varchar2,name_street in varchar2)
+return int
+is
+    v_member_id number ;
+    v_address_id number;
+begin
+    if (memberExists(name_first,name_last,phone,p_city,name_street)=1) then
+        select address_id
+        into v_address_id
+        from address
+        where city=p_city 
+        and street_name=name_street;
+        select member_id
+        into v_member_id
+        from member
+        where first_name=name_first
+        and last_name=name_last
+        and address_id=v_address_id
+        and phone_number=phone;
+        return v_member_id;
+    else
+    return -1;
+    end if;
+end;
+
+
+--rezerva de 9;
+--9 categoriile-titlurile pentru titlurile rent-uite de catre un membru care locuieste in oras dat
+create or replace procedure displayCategories (given_city in address.city%type)
+is 
+    v_category title.category%type;
+    v_description title.description%type;
+    
+    cursor c is
+    select t.category,t.description
+    from title t
+    where t.title_id in(select title_id 
+                        from copy_title ct
+                        where ct.copy_id in (select r.copy_id 
+                                            from rental r,member m
+                                            where r.member_id=m.member_id
+                                            and m.address_id in (select address_id
+                                                                from address 
+                                                                where city=given_city)));
+begin
+    open c;
+    loop
+        fetch c into v_category,v_description;
+        exit when c%notfound;
+        DBMS_OUTPUT.PUT_LINE('Categorie: '|| v_category || ' - Nume: '||v_description);
+    end loop;
+    close c;
+end;
+
+
+begin
+    displayCategories('Bucharest');
+end;
 
 
 
