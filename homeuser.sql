@@ -196,23 +196,36 @@ create or replace function showRented
 return copies
 is
     v_returned copies :=copies();
+    v_numarCopii number:=0;
 begin
-    select copy_id
-    bulk collect into v_returned
+    select count(*)
+    into v_numarCopii
     from rental
     where act_ret_date is null;
-    return v_returned;
+    if (v_numarCopii=0) then
+            raise_application_error(-20001,'Nu exista copii imprumutate.');
+    else
+    
+        select copy_id
+        bulk collect into v_returned
+        from rental
+        where act_ret_date is null;
+        return v_returned;
+    end if;
 end;
 
 select showRented
 from dual;
+
+select * from rental;
+
 
 --7 cartile scrise de un autor care sunt in categoria IT
 create or replace function return_carti_IT (id_author in author.author_id%type)
 return nume_carti
 is
     return_nume_carti nume_carti := nume_carti();
-    
+    v_nrOfRows number;
     cursor c is 
     
     select t.description 
@@ -221,10 +234,19 @@ is
     and ta.title_id=t.title_id
     and t.category ='IT';
 begin
-    OPEN c;
-    FETCH c BULK COLLECT INTO return_nume_carti;
-    CLOSE c;
-    return return_nume_carti;
+    select count(*)
+    into v_nrOfRows
+    from author 
+    where author_id=id_author;
+    
+    if (v_nrOfRows = 0) then
+        raise_application_error(-20001,'Nu exista autorul.');
+    else
+        OPEN c;
+        FETCH c BULK COLLECT INTO return_nume_carti;
+        CLOSE c;
+        return return_nume_carti;
+    end if;
 end;
 
 select return_carti_IT(author_id)
@@ -236,26 +258,36 @@ create or replace function return_nr_copii (id_author in author.author_id%type)
 return number
 is
     return_numar_copii number;
+    v_nrOfRows number;
 begin
     select count(*)
-    into return_numar_copii
-    from copy_title ct
-    where ct.title_id=(select t1.title_id
-                    from author a,title t1,title_author ta1
-                    where a.author_id=id_author
-                    and ta1.author_id=a.author_id
-                    and ta1.title_id=t1.title_id
-                    and t1.rating=(select max(t2.rating)
-                                 from title_author ta2,title t2
-                                 where ta2.author_id=id_author
-                                 and ta2.title_id=t2.title_id));
-    return return_numar_copii;
+    into v_nrOfRows
+    from author
+    where author_id=id_author;
+    
+    if (v_nrOfRows=1)then
+        select count(*)
+        into return_numar_copii
+        from copy_title ct
+        where ct.title_id=(select t1.title_id
+                        from author a,title t1,title_author ta1
+                        where a.author_id=id_author
+                        and ta1.author_id=a.author_id
+                        and ta1.title_id=t1.title_id
+                        and t1.rating=(select max(t2.rating)
+                                     from title_author ta2,title t2
+                                     where ta2.author_id=id_author
+                                     and ta2.title_id=t2.title_id));
+        return return_numar_copii;
+    else
+        raise_application_error(-20001,'Nu exista autorul.');
+        
 end;
 
 select return_nr_copii(author_id)
 from author
 where author_id=5;
--- DE FACUT EXCEPTIILE nu exista autorul dat
+
 
 
 -- EX 9 title,copy title, rental, member, transiction
@@ -267,52 +299,72 @@ is
     v_copy_to_give number :=-1;
     v_copy_ordered number :=1;
     
+    v_nrOfRows number;
+    v_rentPermis number:=1;
+    
 begin 
-    
-    select copy_id
-    bulk collect into t_copies
-    from copy_title
-    where title_id=id_title;
-    
-    for i in t_copies.first..t_copies.last
-    loop
-        v_copy_ordered:=1;
-        select count(*)
-        into v_copy_ordered
-        from rental
-        where 
-        copy_id=t_copies(i)
-        and
-        act_ret_date is null;
-        if (v_copy_ordered = 0) then 
-            v_copy_to_give:=t_copies(i);
-        end if;
-    end loop;
-        
-    
-    insert into rental (rental_id,book_date,copy_id,member_id,exp_ret_date) values (seq_rental.nextval,sysdate,v_copy_to_give,id_member,sysdate+exp_days_rented);
-    
-    select price_per_day
-    into v_price
+    --verificam titlul
+    select count(*)
+    into v_nrOfRows
     from title
     where title_id=id_title;
+    if (v_nrOfRows !=1)
+        v_rentPermis:=0;
+    --verificam ca membrul sa fie corect
+    select count(*)
+    into v_nrOfRows
+    from member
+    where member_id=id_member;
+    if (v_nrOfRows !=1)
+        v_rentPermis:=0;
     
-    update member
-    set balance = balance - exp_days_rented*v_price
-    where member_id = id_member;
+    if (v_rentPermis=1)then
     
-    insert into transactions values (seq_transctions.nextval,id_member,'Member rented copy ' ||v_copy_to_give || ', copy of title with id : ' || id_title || '->' || ' -' || exp_days_rented*v_price);
+        select copy_id
+        bulk collect into t_copies
+        from copy_title
+        where title_id=id_title;
+        
+        for i in t_copies.first..t_copies.last
+        loop
+            v_copy_ordered:=1;
+            select count(*)
+            into v_copy_ordered
+            from rental
+            where 
+            copy_id=t_copies(i)
+            and
+            act_ret_date is null;
+            if (v_copy_ordered = 0) then 
+                v_copy_to_give:=t_copies(i);
+            end if;
+        end loop;
+        if (v_to_give=-1) then
+            raise_application_error(-20001,'Nu este valabila nicio copie');
+        else
+            
+        
+            insert into rental (rental_id,book_date,copy_id,member_id,exp_ret_date) values (seq_rental.nextval,sysdate,v_copy_to_give,id_member,sysdate+exp_days_rented);
+            
+            select price_per_day
+            into v_price
+            from title
+            where title_id=id_title;
+            
+            update member
+            set balance = balance - exp_days_rented*v_price
+            where member_id = id_member;
+            
+            insert into transactions values (seq_transctions.nextval,id_member,'Member rented copy ' ||v_copy_to_give || ', copy of title with id : ' || id_title || '->' || ' -' || exp_days_rented*v_price);
+        end if;
+    else
+    raise_application_error(-20001,'Id membru sau titlu gresit.');
+    end if;
 end;
 
 BEGIN    
 rent(1,17,20);
 end;
-
--- exceptiile sa zicem: nu exista membrul, nu exista titlul,parametru prost bagat
-
-
-
--- FA EXCEPTIILE POSIBILE
 
 
 --10 trigger la nivel de instructiune : nu se pot adauga copii decat intre orele 8-18
@@ -330,6 +382,8 @@ END;
 begin 
     insert_copies(5,10);
 end;
+
+-- FA TRIGGERURI MAI BUNE
 
 --11 trigger la nivel de linie
 
