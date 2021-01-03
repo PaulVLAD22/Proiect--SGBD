@@ -134,6 +134,7 @@ INSERT INTO author VALUES (seq_author.nextval,'Ion','Creanga');
 INSERT INTO author VALUES (seq_author.nextval,'Mihai','Eminescu');
 INSERT INTO author VALUES (seq_author.nextval,'Bill','Gates');
 INSERT INTO author VALUES (seq_author.nextval,'Ion','Creanga');
+INSERT INTO author VALUES (seq_author.nextval,'Mircea','Eliade');
 
 INSERT INTO title VALUES (seq_title.nextval,'Hunting Bears',65,'Hunting',TO_DATE('2020-03-20','YYYY-MM-DD'),20);
 INSERT INTO title VALUES (seq_title.nextval,'Cooking Vegan Food',89,'Cooking',TO_DATE('2015-01-25','YYYY-MM-DD'),70);
@@ -192,6 +193,7 @@ INSERT INTO address (address_id,city) values (seq_address.nextval,'Brasov');
 -- 6. 
 -- functie care returneaza id-ul copiilor care sunt in momentul asta inchiriate
 create or replace type copies is table of number;
+
 create or replace function showRented 
 return copies
 is
@@ -217,7 +219,6 @@ end;
 select showRented
 from dual;
 
-select * from rental;
 
 
 --7 cartile scrise de un autor care sunt in categoria IT
@@ -249,16 +250,15 @@ begin
     end if;
 end;
 
-select return_carti_IT(author_id)
-from author
-where author_id=5;
+select return_carti_IT(11)
+from dual;
 
 --8 functie care returneaza numarul de copii a titlului cu cel mai mare rating al unui autor
 create or replace function return_nr_copii (id_author in author.author_id%type)
 return number
 is
     return_numar_copii number;
-    v_nrOfRows number;
+    v_nrOfRows number:=0;
 begin
     select count(*)
     into v_nrOfRows
@@ -281,12 +281,12 @@ begin
         return return_numar_copii;
     else
         raise_application_error(-20001,'Nu exista autorul.');
+    end if;
         
 end;
 
-select return_nr_copii(author_id)
-from author
-where author_id=5;
+select return_nr_copii(5)
+from dual;
 
 
 
@@ -342,7 +342,6 @@ begin
         if (v_to_give=-1) then
             raise_application_error(-20001,'Nu este valabila nicio copie');
         else
-            
         
             insert into rental (rental_id,book_date,copy_id,member_id,exp_ret_date) values (seq_rental.nextval,sysdate,v_copy_to_give,id_member,sysdate+exp_days_rented);
             
@@ -383,23 +382,20 @@ begin
     insert_copies(5,10);
 end;
 
--- FA TRIGGERURI MAI BUNE
-
 --11 trigger la nivel de linie
 
 create or replace trigger ex_11
-    before update of price_per_day on title
+    after update of balance on member
     for each row
 begin
-    if (:NEW.price_per_day > :OLD.price_per_day)
+    if (:NEW.balance < -500)
     then
-    raise_application_error(-20001,'Nu poti creste pretul titlurilor');
+    raise_application_error(-20001,'Datorii de peste 500 de lei.');
     end if;
 end;
-
-update title
-set price_per_day=2*price_per_day;
-
+begin
+rent(1,17,1000);
+end;
 --12 trigger LDD
 
 create or replace trigger ex_12  
@@ -595,6 +591,7 @@ select * from address;
 begin
 createMember('Cezara','Grigoras','0727587574','Bucharest','Ion Mihalache');
 end;
+
 -- get memberid cand a uitat contul
 create or replace function getMemberId(name_first in varchar2,name_last in varchar2,phone in varchar2,p_city in varchar2,name_street in varchar2)
 return int
