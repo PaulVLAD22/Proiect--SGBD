@@ -1,11 +1,13 @@
  -- CREATING TABLES
 
 drop table title cascade constraints;
-drop table authors cascade constraints;
+drop table author cascade constraints;
 drop table member cascade constraints;
 drop table rental cascade constraints;
-drop table title_author_mapping cascade constraints;
+drop table title_author cascade constraints;
 drop table copy_title cascade constraints;
+drop table address cascade constraints;
+drop table transaction cascade constraints;
 
 SELECT 
 SYS_CONTEXT('USERENV','NLS_TERRITORY') nls_territory,
@@ -23,13 +25,22 @@ alter session set NLS_DATE_LANGUAGE='AMERICAN';
 
 PROMPT Please wait while tables are created.
 
+CREATE TABLE audit_user(
+  nume_bd VARCHAR2(50),
+  user_logat VARCHAR2(30),
+  eveniment VARCHAR2(20),
+  tip_obiect_referit VARCHAR2(30),
+  nume_obiect_referit VARCHAR2(30),
+  data TIMESTAMP(3)
+);
+
 CREATE TABLE title (
   title_id NUMBER(10) CONSTRAINT title_pk PRIMARY KEY,
   description varchar2(128),
   rating NUMBER(3),
   category varchar2(10),
   release_date date,
-  price NUMBER(3)
+  price_per_day NUMBER(3)
 );
 
 CREATE TABLE author (
@@ -74,7 +85,8 @@ CREATE TABLE rental(
 CREATE TABLE transaction(
   transaction_id number(10),
   member_id constraint transaction_member_id_fk references member(member_id) on delete cascade,
-  transcation_description varchar2(128)
+  transcation_description varchar2(128),
+  constraint transaction_pk primary key (transaction_id)
 );
 
 
@@ -106,6 +118,9 @@ DROP SEQUENCE seq_author;
 DROP SEQUENCE seq_title;
 DROP SEQUENCE seq_member;
 DROP SEQUENCE seq_copy_title;
+drop sequence seq_rental;
+drop sequence seq_address;
+drop sequence seq_transaction;
 
 -- create sequences
 CREATE SEQUENCE seq_author MINVALUE 1 START WITH 1 INCREMENT BY 1 CACHE 10;
@@ -136,50 +151,50 @@ INSERT INTO author VALUES (seq_author.nextval,'Bill','Gates');
 INSERT INTO author VALUES (seq_author.nextval,'Ion','Creanga');
 INSERT INTO author VALUES (seq_author.nextval,'Mircea','Eliade');
 
-INSERT INTO title VALUES (seq_title.nextval,'Hunting Bears',65,'Hunting',TO_DATE('2020-03-20','YYYY-MM-DD'),20);
-INSERT INTO title VALUES (seq_title.nextval,'Cooking Vegan Food',89,'Cooking',TO_DATE('2015-01-25','YYYY-MM-DD'),70);
-INSERT INTO title VALUES (seq_title.nextval,'Using javascript in programming',65,'IT',TO_DATE('2010-04-02','YYYY-MM-DD'),90);
-INSERT INTO title VALUES (seq_title.nextval,'Using c++ in programming',40,'IT',TO_DATE('2005-01-01','YYYY-MM-DD'),91);
-INSERT INTO title VALUES (seq_title.nextval,'Using java in programming',50,'IT',TO_DATE('2016-01-03','YYYY-MM-DD'),95);
-INSERT INTO title VALUES (seq_title.nextval,'Using python in programming',75,'IT',TO_DATE('2019-04-02','YYYY-MM-DD'),90);
-INSERT INTO title VALUES (seq_title.nextval,'Philosphy Starter Pack',80,'Philosophy',TO_DATE('2017-12-15','YYYY-MM-DD'),99);
-INSERT INTO title VALUES (seq_title.nextval,'Cooking Desserts',50,'Cooking',TO_DATE('2012-01-25','YYYY-MM-DD'),80);
-INSERT INTO title VALUES (seq_title.nextval,'Surviving on an island',65,'Survival',TO_DATE('2020-01-12','YYYY-MM-DD'),30);
-INSERT INTO title VALUES (seq_title.nextval,'Poetry in Mihai Eminescu Style',89,'Poetry',TO_DATE('2000-02-10','YYYY-MM-DD'),99);
+INSERT INTO title VALUES (seq_title.nextval,'Hunting Bears',65,'Hunting',TO_DATE('2020-03-20','YYYY-MM-DD'),2);
+INSERT INTO title VALUES (seq_title.nextval,'Cooking Vegan Food',89,'Cooking',TO_DATE('2015-01-25','YYYY-MM-DD'),7);
+INSERT INTO title VALUES (seq_title.nextval,'Using javascript in programming',65,'IT',TO_DATE('2010-04-02','YYYY-MM-DD'),9);
+INSERT INTO title VALUES (seq_title.nextval,'Using c++ in programming',40,'IT',TO_DATE('2005-01-01','YYYY-MM-DD'),9);
+INSERT INTO title VALUES (seq_title.nextval,'Using java in programming',50,'IT',TO_DATE('2016-01-03','YYYY-MM-DD'),9);
+INSERT INTO title VALUES (seq_title.nextval,'Using python in programming',75,'IT',TO_DATE('2019-04-02','YYYY-MM-DD'),9);
+INSERT INTO title VALUES (seq_title.nextval,'Philosphy Starter Pack',80,'Philosophy',TO_DATE('2017-12-15','YYYY-MM-DD'),9);
+INSERT INTO title VALUES (seq_title.nextval,'Cooking Desserts',50,'Cooking',TO_DATE('2012-01-25','YYYY-MM-DD'),8);
+INSERT INTO title VALUES (seq_title.nextval,'Surviving on an island',65,'Survival',TO_DATE('2020-01-12','YYYY-MM-DD'),3);
+INSERT INTO title VALUES (seq_title.nextval,'Poetry in Mihai Eminescu Style',89,'Poetry',TO_DATE('2000-02-10','YYYY-MM-DD'),2);
 
 INSERT INTO member (member_id,first_name,last_name,address_id,phone_number,join_date) VALUES (seq_member.nextval,'Cezara','Grigoras',1,'0727587574',SYSDATE);
 INSERT INTO member (member_id,first_name,last_name,address_id,phone_number,join_date) VALUES (seq_member.nextval,'Gabi','Flavius',2,'0721341296',TO_DATE('2010-04-02','YYYY-MM-DD'));
 INSERT INTO member (member_id,first_name,last_name,address_id,phone_number,join_date) VALUES (seq_member.nextval,'Edi','Sujon',2,'0761413122',TO_DATE('2015-06-15','YYYY-MM-DD'));
 INSERT INTO member (member_id,first_name,last_name,address_id,phone_number,join_date) VALUES (seq_member.nextval,'Mario','Marian',3,'02313133',SYSDATE);
 
-INSERT INTO copy_title values (seq_copy_title.nextval,1);
-INSERT INTO copy_title values (seq_copy_title.nextval,2);
-INSERT INTO copy_title values (seq_copy_title.nextval,3);
-INSERT INTO copy_title values (seq_copy_title.nextval,2);
-INSERT INTO copy_title values (seq_copy_title.nextval,3);
-INSERT INTO copy_title values (seq_copy_title.nextval,4);
-INSERT INTO copy_title values (seq_copy_title.nextval,5);
-INSERT INTO copy_title values (seq_copy_title.nextval,6);
-INSERT INTO copy_title values (seq_copy_title.nextval,4);
-INSERT INTO copy_title values (seq_copy_title.nextval,5);
-INSERT INTO copy_title values (seq_copy_title.nextval,10);
-INSERT INTO copy_title values (seq_copy_title.nextval,10);
+INSERT INTO copy_title values (seq_copy_title.nextval,22);
+INSERT INTO copy_title values (seq_copy_title.nextval,23);
+INSERT INTO copy_title values (seq_copy_title.nextval,24);
+INSERT INTO copy_title values (seq_copy_title.nextval,25);
+INSERT INTO copy_title values (seq_copy_title.nextval,26);
+INSERT INTO copy_title values (seq_copy_title.nextval,27);
+INSERT INTO copy_title values (seq_copy_title.nextval,30);
+INSERT INTO copy_title values (seq_copy_title.nextval,25);
+INSERT INTO copy_title values (seq_copy_title.nextval,30);
+INSERT INTO copy_title values (seq_copy_title.nextval,30);
+INSERT INTO copy_title values (seq_copy_title.nextval,25);
+INSERT INTO copy_title values (seq_copy_title.nextval,26);
 
-INSERT INTO title_author values (1,1);
-INSERT INTO title_author values (2,2);
-INSERT INTO title_author values (3,3);
-INSERT INTO title_author values (4,4);
-INSERT INTO title_author values (5,5);
-INSERT INTO title_author values (6,3);
-INSERT INTO title_author values (7,4);
-INSERT INTO title_author values (8,4);
-INSERT INTO title_author values (9,4);
-INSERT INTO title_author values (10,5);
+INSERT INTO title_author values (21,1);
+INSERT INTO title_author values (22,2);
+INSERT INTO title_author values (23,3);
+INSERT INTO title_author values (24,4);
+INSERT INTO title_author values (25,5);
+INSERT INTO title_author values (26,3);
+INSERT INTO title_author values (27,4);
+INSERT INTO title_author values (28,4);
+INSERT INTO title_author values (29,4);
+INSERT INTO title_author values (30,5);
 
-INSERT INTO rental values (seq_rental.nextval,SYSDATE,1,7,TO_DATE('2020-11-15','YYYY-MM-DD'),TO_DATE('2020-11-10','YYYY-MM-DD'));
-INSERT INTO rental values (seq_rental.nextval,TO_DATE('2019-05-02','YYYY-MM-DD'),2,8,SYSDATE,TO_DATE('2019-12-15','YYYY-MM-DD'));
-INSERT INTO rental values (seq_rental.nextval,TO_DATE('2020-01-05','YYYY-MM-DD'),3,9,TO_DATE('2020-12-10','YYYY-MM-DD'),SYSDATE);
-INSERT INTO rental (rental_id,book_date,copy_id,member_id,exp_ret_date) values (seq_rental.nextval,SYSDATE,4,10,TO_DATE('2021-01-10','YYYY-MM-DD'));
+INSERT INTO rental values (seq_rental.nextval,SYSDATE,1,8,TO_DATE('2020-11-15','YYYY-MM-DD'),TO_DATE('2020-11-10','YYYY-MM-DD'));
+INSERT INTO rental values (seq_rental.nextval,TO_DATE('2019-05-02','YYYY-MM-DD'),5,8,SYSDATE,TO_DATE('2019-12-15','YYYY-MM-DD'));
+INSERT INTO rental values (seq_rental.nextval,TO_DATE('2020-01-05','YYYY-MM-DD'),6,5,TO_DATE('2020-12-10','YYYY-MM-DD'),SYSDATE);
+INSERT INTO rental (rental_id,book_date,copy_id,member_id,exp_ret_date) values (seq_rental.nextval,SYSDATE,4,7,TO_DATE('2021-01-10','YYYY-MM-DD'));
 
 INSERT INTO address values (seq_address.nextval,'Bucharest','Ion Mihalache');
 INSERT INTO address (address_id,city) values (seq_address.nextval,'Bucharest');
@@ -187,6 +202,9 @@ INSERT INTO address values (seq_address.nextval,'Cluj','Nicolae Grigorescu');
 INSERT INTO address values (seq_address.nextval,'Constanta','Ion Mihalache');
 INSERT INTO address (address_id,city) values (seq_address.nextval,'Brasov');
 
+insert into transaction values (seq_transaction.nextval,5,'Member rented copy 1 of title 10');
+insert into transaction values (seq_transaction.nextval,6,'Member rented copy 1 of title 10');
+insert into transaction values (seq_transaction.nextval,7,'Member rented copy 1 of title 10');
 
 
 
@@ -194,7 +212,7 @@ INSERT INTO address (address_id,city) values (seq_address.nextval,'Brasov');
 -- functie care returneaza id-ul copiilor care sunt in momentul asta inchiriate
 create or replace type copies is table of number;
 
-create or replace function showRented 
+create or replace function showRented
 return copies
 is
     v_returned copies :=copies();
@@ -220,7 +238,7 @@ select showRented
 from dual;
 
 
-
+create or replace type nume_carti is table of varchar;
 --7 cartile scrise de un autor care sunt in categoria IT
 create or replace function return_carti_IT (id_author in author.author_id%type)
 return nume_carti
@@ -250,43 +268,109 @@ begin
     end if;
 end;
 
-select return_carti_IT(11)
+select return_carti_IT(5)
 from dual;
 
---8 functie care returneaza numarul de copii a titlului cu cel mai mare rating al unui autor
-create or replace function return_nr_copii (id_author in author.author_id%type)
-return number
-is
-    return_numar_copii number;
-    v_nrOfRows number:=0;
+--8 functie pentru returnatCarti ce returneaza balance-ul membrul care a adus cartea.
+create or replace function returnBook (id_title in title.title_id%type,id_member in member.member_id%type)
+return varchar
+is  
+    v_nrOfRows number;
+    v_returnPermis number:=1;
+    v_nrCopie number :=-1;
+    v_balance number;
+    
+    v_exp_date rental.exp_ret_date%type;
+    v_book_date rental.book_date%type;
+    v_price_per_day title.price_per_day%type;
 begin
+    --verificam titlul
     select count(*)
     into v_nrOfRows
-    from author
-    where author_id=id_author;
-    
-    if (v_nrOfRows=1)then
-        select count(*)
-        into return_numar_copii
-        from copy_title ct
-        where ct.title_id=(select t1.title_id
-                        from author a,title t1,title_author ta1
-                        where a.author_id=id_author
-                        and ta1.author_id=a.author_id
-                        and ta1.title_id=t1.title_id
-                        and t1.rating=(select max(t2.rating)
-                                     from title_author ta2,title t2
-                                     where ta2.author_id=id_author
-                                     and ta2.title_id=t2.title_id));
-        return return_numar_copii;
-    else
-        raise_application_error(-20001,'Nu exista autorul.');
+    from title
+    where title_id=id_title;
+    if (v_nrOfRows !=1) then
+        v_returnPermis:=0;
     end if;
+    --verificam ca membrul sa fie corect
+    select count(*)
+    into v_nrOfRows
+    from member
+    where member_id=id_member;
+    if (v_nrOfRows !=1) then
+        v_returnPermis:=0;
+    end if;
+    if (v_returnPermis=0)then
+        raise_application_error(-20001,'Id titlu sau membru gresit.');  
+    else
+        select count(*)
+        into v_nrOfRows
+        from rental
+        where act_ret_date is null
+        and member_id=id_member
+        and copy_id in (select copy_id 
+                        from copy_title
+                        where title_id=id_title);
         
+        if (v_nrOfRows=0) then
+            raise_application_error(-20001,'Nicio copie imprumutata'); 
+        else 
+            select exp_ret_date,book_date,copy_id
+            into v_exp_date,v_book_date,v_nrCopie
+            from rental
+            where member_id=id_member
+            and act_ret_date is null
+            and copy_id in (select copy_id
+                            from copy_title
+                            where title_id=id_title);
+        
+            select price_per_day
+            into v_price_per_day
+            from title
+            where title_id=id_title;
+            
+            update rental 
+            set act_ret_date=sysdate
+            where member_id=id_member
+            and act_ret_date is null
+            and copy_id in (select copy_id
+                            from copy_title
+                            where title_id=id_title);
+            
+            update member
+                set balance = balance+ v_price_per_day*(v_exp_date-v_book_date);
+            if (sysdate>v_exp_date) then 
+                update member
+                set balance = balance - v_price_per_day*(sysdate-v_exp_date);
+            end if;
+            select balance 
+            into v_balance
+            from member
+            where member_id=id_member;
+            return 'New Balance is : '|| v_balance;
+        end if;
+    end if;
 end;
 
-select return_nr_copii(5)
-from dual;
+select * from title;
+select * from member;
+
+begin
+rent (30,6,30);
+end;
+
+begin
+DBMS_OUTPUT.put_line(returnBook(28,8));
+end;
+
+select * from member;
+
+begin
+    DBMS_OUTPUT.put_line(returnBook(2,6));
+end;
+select * from rental;
+select * from title;
+select * from copy_title;
 
 
 
@@ -308,16 +392,17 @@ begin
     into v_nrOfRows
     from title
     where title_id=id_title;
-    if (v_nrOfRows !=1)
+    if (v_nrOfRows !=1) then
         v_rentPermis:=0;
+    end if;
     --verificam ca membrul sa fie corect
     select count(*)
     into v_nrOfRows
     from member
     where member_id=id_member;
-    if (v_nrOfRows !=1)
+    if (v_nrOfRows !=1) then
         v_rentPermis:=0;
-    
+    end if;
     if (v_rentPermis=1)then
     
         select copy_id
@@ -339,7 +424,7 @@ begin
                 v_copy_to_give:=t_copies(i);
             end if;
         end loop;
-        if (v_to_give=-1) then
+        if (v_copy_to_give=-1) then
             raise_application_error(-20001,'Nu este valabila nicio copie');
         else
         
@@ -354,16 +439,22 @@ begin
             set balance = balance - exp_days_rented*v_price
             where member_id = id_member;
             
-            insert into transactions values (seq_transctions.nextval,id_member,'Member rented copy ' ||v_copy_to_give || ', copy of title with id : ' || id_title || '->' || ' -' || exp_days_rented*v_price);
+            insert into transaction values (seq_transaction.nextval,id_member,'Member rented copy ' ||v_copy_to_give || ', copy of title with id : ' || id_title || '->' || ' -' || exp_days_rented*v_price);
         end if;
     else
     raise_application_error(-20001,'Id membru sau titlu gresit.');
     end if;
 end;
 
+
 BEGIN    
-rent(1,17,20);
+rent(28,8,20);
 end;
+select * from rental;
+
+select * from copy_title;
+select * from rental
+where member_id=6;
 
 
 --10 trigger la nivel de instructiune : nu se pot adauga copii decat intre orele 8-18
@@ -372,7 +463,7 @@ create or replace trigger ex_10
     before insert on copy_title
 BEGIN
     if (TO_CHAR(SYSDATE,'D') =1)
-        OR (TO_CHAR(SYSDATE,'HH24') NOT BETWEEN 8 AND 18)
+        OR (TO_CHAR(SYSDATE,'HH24') NOT BETWEEN 8 AND 17)
     THEN
     raise_application_error(-20001,'Nu poti insera copii in afara orelor de munca');
     end if;
@@ -394,18 +485,376 @@ begin
     end if;
 end;
 begin
-rent(1,17,1000);
+rent(5,8,1000);
 end;
 --12 trigger LDD
 
-create or replace trigger ex_12  
-    BEFORE DROP ON DATABASE
-BEGIN
-    raise_application_error(-20001,'Opriti triggeru-ul ex-12 inainte de a sterge un tabel.');   
-END;
+create or replace trigger audit_schema
+    AFTER CREATE OR DROP OR ALTER ON SCHEMA
+    BEGIN
+        INSERT INTO audit_user VALUES (SYS.DATABASE_NAME, SYS.LOGIN_USER, SYS.SYSEVENT, SYS.DICTIONARY_OBJ_TYPE,SYS.DICTIONARY_OBJ_NAME, SYSTIMESTAMP(3));
+    END;
+--13
 
-drop table address;
+create or replace package proiectSGBD as
+    type copies is table of number;
+    type grup_autori is table of number;
+    type nume_carti is table of varchar2(128);
+     
+    function showRented return copies;
+    function return_carti_IT (id_author in author.author_id%type) return nume_carti;
+    function returnBook (id_title in title.title_id%type,id_member in member.member_id%type) return varchar;
+    procedure rent (id_title in title.title_id%type,id_member in member.member_id%type,exp_days_rented in int);
+    procedure insert_copies (copy_nr in number,id_title in title.title_id%type);
+    procedure addBalance (id_member in member.member_id%type,value_added in number);
+    function viewBalance (id_member in member.member_id%type) return number;
+    procedure createMember (name_first in varchar2,name_last in varchar2,phone in varchar2,p_city in varchar2,name_street in varchar2);
+    function memberExists(name_first in varchar2,name_last in varchar2,phone in varchar2,p_city in varchar2,name_street in varchar2) return int;
+    function getMemberId(name_first in varchar2,name_last in varchar2,phone in varchar2,p_city in varchar2,name_street in varchar2) return int;
+    function getTitlesOfAuthor(id_author in number) return nume_carti;
+    function getAuthorId(name_first in varchar2,name_last in varchar2) return grup_autori;
 
+end proiectSGBD;
+
+create or replace package body proiectSGBD as
+
+function showRented 
+return copies
+is
+    v_returned copies :=copies();
+    v_numarCopii number:=0;
+begin
+    select count(*)
+    into v_numarCopii
+    from rental
+    where act_ret_date is null;
+    if (v_numarCopii=0) then
+            raise_application_error(-20001,'Nu exista copii imprumutate.');
+    else
+    
+        select copy_id
+        bulk collect into v_returned
+        from rental
+        where act_ret_date is null;
+        return v_returned;
+    end if;
+end;
+
+function return_carti_IT (id_author in author.author_id%type)
+return nume_carti
+is
+    return_nume_carti nume_carti := nume_carti();
+    v_nrOfRows number;
+    cursor c is 
+    
+    select t.description 
+    from title t, title_author ta
+    where id_author=ta.author_id
+    and ta.title_id=t.title_id
+    and t.category ='IT';
+begin
+    select count(*)
+    into v_nrOfRows
+    from author 
+    where author_id=id_author;
+    
+    if (v_nrOfRows = 0) then
+        raise_application_error(-20001,'Nu exista autorul.');
+    else
+        OPEN c;
+        FETCH c BULK COLLECT INTO return_nume_carti;
+        CLOSE c;
+        return return_nume_carti;
+    end if;
+end;
+
+function returnBook (id_title in title.title_id%type,id_member in member.member_id%type)
+return varchar
+is  
+    v_nrOfRows number;
+    v_returnPermis number:=1;
+    v_nrCopie number :=-1;
+    v_balance number;
+    
+    v_exp_date rental.exp_ret_date%type;
+    v_book_date rental.book_date%type;
+    v_price_per_day title.price_per_day%type;
+begin
+    --verificam titlul
+    select count(*)
+    into v_nrOfRows
+    from title
+    where title_id=id_title;
+    if (v_nrOfRows !=1) then
+        v_returnPermis:=0;
+    end if;
+    --verificam ca membrul sa fie corect
+    select count(*)
+    into v_nrOfRows
+    from member
+    where member_id=id_member;
+    if (v_nrOfRows !=1) then
+        v_returnPermis:=0;
+    end if;
+    if (v_returnPermis=0)then
+        raise_application_error(-20001,'Id titlu sau membru gresit.');  
+    else
+        select count(*)
+        into v_nrOfRows
+        from rental
+        where act_ret_date is null
+        and member_id=id_member
+        and copy_id in (select copy_id 
+                        from copy_title
+                        where title_id=id_title);
+        
+        if (v_nrOfRows=0) then
+            raise_application_error(-20001,'Nicio copie imprumutata'); 
+        else 
+        
+            select exp_ret_date,book_date,copy_id
+            into v_exp_date,v_book_date,v_nrCopie
+            from rental
+            where member_id=id_member
+            and act_ret_date is null
+            and copy_id in (select copy_id
+                            from copy_title
+                            where title_id=id_title);
+        
+            select price_per_day
+            into v_price_per_day
+            from title
+            where title_id=id_title;
+            
+            update rental 
+            set act_ret_date=sysdate
+            where member_id=id_member
+            and act_ret_date is null
+            and copy_id in (select copy_id
+                            from copy_title
+                            where title_id=id_title);
+            
+            update member
+                set balance = balance+ v_price_per_day*(v_exp_date-v_book_date);
+            if (sysdate>v_exp_date) then 
+                update member
+                set balance = balance - v_price_per_day*(sysdate-v_exp_date);
+            end if;
+            select balance 
+            into v_balance
+            from member
+            where member_id=id_member;
+            return 'New Balance is : '|| v_balance;
+        end if;
+    end if;
+end;
+
+procedure rent (id_title in title.title_id%type,id_member in member.member_id%type,exp_days_rented in int)
+is
+    v_price title.price_per_day%type;
+    type copies is table of copy_title.copy_id%type;
+    t_copies copies;
+    v_copy_to_give number :=-1;
+    v_copy_ordered number :=1;
+    
+    v_nrOfRows number;
+    v_rentPermis number:=1;
+    
+begin 
+    --verificam titlul
+    select count(*)
+    into v_nrOfRows
+    from title
+    where title_id=id_title;
+    if (v_nrOfRows !=1) then
+        v_rentPermis:=0;
+    end if;
+    --verificam ca membrul sa fie corect
+    select count(*)
+    into v_nrOfRows
+    from member
+    where member_id=id_member;
+    if (v_nrOfRows !=1) then
+        v_rentPermis:=0;
+    end if;
+    if (v_rentPermis=1)then
+    
+        select copy_id
+        bulk collect into t_copies
+        from copy_title
+        where title_id=id_title;
+        
+        for i in t_copies.first..t_copies.last
+        loop
+            v_copy_ordered:=1;
+            select count(*)
+            into v_copy_ordered
+            from rental
+            where 
+            copy_id=t_copies(i)
+            and
+            act_ret_date is null;
+            if (v_copy_ordered = 0) then 
+                v_copy_to_give:=t_copies(i);
+            end if;
+        end loop;
+        if (v_copy_to_give=-1) then
+            raise_application_error(-20001,'Nu este valabila nicio copie');
+        else
+        
+            insert into rental (rental_id,book_date,copy_id,member_id,exp_ret_date) values (seq_rental.nextval,sysdate,v_copy_to_give,id_member,sysdate+exp_days_rented);
+            
+            select price_per_day
+            into v_price
+            from title
+            where title_id=id_title;
+            
+            update member
+            set balance = balance - exp_days_rented*v_price
+            where member_id = id_member;
+            
+            insert into transaction values (seq_transaction.nextval,id_member,'Member rented copy ' ||v_copy_to_give || ', copy of title with id : ' || id_title || '->' || ' -' || exp_days_rented*v_price);
+        end if;
+    else
+    raise_application_error(-20001,'Id membru sau titlu gresit.');
+    end if;
+end;
+
+ procedure insert_copies (copy_nr in number,id_title in title.title_id%type)
+is 
+begin
+    for i in 1..copy_nr
+    loop
+    INSERT INTO copy_title values (seq_copy_title.nextval,id_title);
+    end loop;
+end;
+
+procedure addBalance (id_member in member.member_id%type,value_added in number)
+is
+begin
+    update member
+    set balance=balance+value_added
+    where member_id=id_member;
+end;
+
+function viewBalance (id_member in member.member_id%type)
+return number
+is
+    v_balance number;
+begin
+    select balance
+    into v_balance
+    from member
+    where member_id=id_member;
+    return v_balance;
+end;
+
+procedure createMember (name_first in varchar2,name_last in varchar2,phone in varchar2,p_city in varchar2,name_street in varchar2)
+is
+    v_address_id number :=-1;
+begin
+    if (memberExists(name_first,name_last,phone,p_city,name_street)=0) then
+    select address_id
+    into v_address_id
+    from address
+    where city=p_city
+    and street_name=name_street;
+    if (v_address_id = -1) then
+        v_address_id:=seq_address.nextval;
+        insert into address values (v_address_id,p_city,name_street);
+        insert into member (member_id,first_name,last_name,address_id,phone_number,join_date) values (seq_member.nextval,name_first,name_last,v_address_id,phone,Sysdate);
+    else
+        insert into member (member_id,first_name,last_name,address_id,phone_number,join_date) values (seq_member.nextval,name_first,name_last,v_address_id,phone,Sysdate);
+    end if;
+    DBMS_OUTPUT.put_line('Member added');
+    else
+    DBMS_OUTPUT.put_line('Member already exists');
+    end if;
+end;
+
+function memberExists(name_first in varchar2,name_last in varchar2,phone in varchar2,p_city in varchar2,name_street in varchar2)
+return int
+is
+    v_exists int;
+    v_address_id number :=-1;
+    v_member_id number :=-1;
+begin
+    select count(*)
+    into v_address_id
+    from address
+    where city=p_city
+    and street_name=name_street;
+    if (v_address_id =-1) then
+    return 0;
+    else
+        select count(*)
+        into v_member_id
+        from member
+        where first_name=name_first
+        and last_name=name_last
+        and phone_number=phone;
+        if (v_member_id=-1) then
+        return 0;
+        else 
+        return v_member_id;
+        end if;
+    end if;
+end;
+
+function getMemberId(name_first in varchar2,name_last in varchar2,phone in varchar2,p_city in varchar2,name_street in varchar2)
+return int
+is
+    v_member_id number ;
+    v_address_id number;
+begin
+    if (memberExists(name_first,name_last,phone,p_city,name_street)=1) then
+        select address_id
+        into v_address_id
+        from address
+        where city=p_city 
+        and street_name=name_street;
+        select member_id
+        into v_member_id
+        from member
+        where first_name=name_first
+        and last_name=name_last
+        and address_id=v_address_id
+        and phone_number=phone;
+        return v_member_id;
+    else
+    return -1;
+    end if;
+end;
+
+function getAuthorId(name_first in varchar2,name_last in varchar2)
+return grup_autori
+is
+    v_autori grup_autori := grup_autori();
+begin
+    select author_id
+    bulk collect into v_autori
+    from author
+    where first_name=name_first
+    and last_name=name_last;
+    return v_autori;
+end;
+
+function getTitlesOfAuthor(id_author in number)
+return nume_carti
+is 
+    v_return nume_carti := nume_carti();
+begin
+    select description
+    bulk collect into v_return
+    from title t,title_author ta
+    where t.title_id=ta.title_id
+    and ta.author_id=id_author;
+    return v_return;
+end;
+
+
+end proiectSGBD;
+    
 
 -- pentru utilitatea librariei
 
@@ -420,95 +869,6 @@ begin
     end loop;
 end;
 
-
--- rents book
-create or replace procedure rent (id_title in title.title_id%type,id_member in member.member_id%type,exp_days_rented in int)
-is
-    v_price title.price_per_day%type;
-    type copies is table of copy_title.copy_id%type;
-    t_copies copies;
-    v_copy_to_give number :=-1;
-    v_copy_ordered number :=1;
-begin 
-    
-    select copy_id
-    bulk collect into t_copies
-    from copy_title
-    where title_id=id_title;
-    
-    for i in t_copies.first..t_copies.last
-    loop
-        v_copy_ordered:=1;
-        select count(*)
-        into v_copy_ordered
-        from rental
-        where 
-        copy_id=t_copies(i)
-        and
-        act_ret_date is null;
-        if (v_copy_ordered = 0) then 
-            v_copy_to_give:=t_copies(i);
-        end if;
-    end loop;
-        
-    
-    insert into rental (rental_id,book_date,copy_id,member_id,exp_ret_date) values (seq_rental.nextval,sysdate,v_copy_to_give,id_member,sysdate+exp_days_rented);
-    
-    select price_per_day
-    into v_price
-    from title
-    where title_id=id_title;
-    
-    update member
-    set balance = balance - exp_days_rented*v_price
-    where member_id = id_member;
-    
-    insert into transactions values (seq_transctions.nextval,id_member,'Member rented copy ' ||v_copy_to_give || ', copy of title with id : ' || id_title || '->' || ' -' || exp_days_rented*v_price);
-    
-end;
-
-
-
-
---returns book
-create or replace procedure returnBook (id_title in title.title_id%type,id_member in member.member_id%type)
-is
-    v_exp_date rental.exp_ret_date%type;
-    v_book_date rental.book_date%type;
-    v_price_per_day title.price_per_day%type;
-begin
-    select exp_ret_date,book_date
-    into v_exp_date,v_book_date
-    from rental
-    where member_id=id_member
-    and act_ret_date is null
-    and copy_id in (select copy_id
-                    from copy_title
-                    where title_id=id_title);
-    select price_per_day
-    into v_price_per_day
-    from title
-    where title_id=id_title;
-    
-    update rental 
-    set act_ret_date=sysdate
-    where member_id=id_member
-    and act_ret_date is null
-    and copy_id in (select copy_id
-                    from copy_title
-                    where title_id=id_title);
-    
-    update member
-        set balance = balance+ v_price_per_day*(v_exp_date-v_book_date);
-    if (sysdate>v_exp_date) then 
-        update member
-        set balance = balance - v_price_per_day*(sysdate-v_exp_date);
-    end if;
-end;
-begin 
-    returnBook(1,7);
-end;
--- trateaza exceptia in care nu avea nimic order-uit member-ul respectiv
 
 
 --adauga balance
@@ -529,6 +889,7 @@ begin
     into v_balance
     from member
     where member_id=id_member;
+    return v_balance;
 end;
 
 --functie pentru adaugare membrii
@@ -619,38 +980,74 @@ begin
 end;
 
 
---rezerva de 9;
---9 categoriile-titlurile pentru titlurile rent-uite de catre un membru care locuieste in oras dat
-create or replace procedure displayCategories (given_city in address.city%type)
+create or replace type grup_autori is table of number;
+create or replace type nume_carti is table of varchar2(128);
+create or replace function getAuthorId(name_first in varchar2,name_last in varchar2)
+return grup_autori
+is
+    v_autori grup_autori := grup_autori();
+begin
+    select author_id
+    bulk collect into v_autori
+    from author
+    where first_name=name_first
+    and last_name=name_last;
+    return v_autori;
+end;
+
+create or replace function getTitlesOfAuthor(id_author in number)
+return nume_carti
 is 
-    v_category title.category%type;
-    v_description title.description%type;
-    
-    cursor c is
-    select t.category,t.description
-    from title t
-    where t.title_id in(select title_id 
-                        from copy_title ct
-                        where ct.copy_id in (select r.copy_id 
-                                            from rental r,member m
-                                            where r.member_id=m.member_id
-                                            and m.address_id in (select address_id
-                                                                from address 
-                                                                where city=given_city)));
+    v_return nume_carti := nume_carti();
 begin
-    open c;
-    loop
-        fetch c into v_category,v_description;
-        exit when c%notfound;
-        DBMS_OUTPUT.PUT_LINE('Categorie: '|| v_category || ' - Nume: '||v_description);
-    end loop;
-    close c;
+    select description
+    bulk collect into v_return
+    from title t,title_author ta
+    where t.title_id=ta.title_id
+    and ta.author_id=id_author;
+    return v_return;
 end;
 
 
+-- rulare pachet
+
+declare
+     copii copies:=copies();
 begin
-    displayCategories('Bucharest');
+ copii:=proiectSGBD.showRented;
 end;
 
+select proiectSGBD.return_carti_IT(5)
+from dual
 
+select * 
+from rental
+where act_ret_date is null;
+
+begin
+DBMS_OUTPUT.put_line(proiectSGBD.returnBook(25,5));
+end;
+
+-- ruleaza mia intai rent 
+begin
+proiectSGBD.rent (25,5,50);
+end;
+
+execute proiectSGBD.insert_copies(10,28);
+select * from copy_title;
+
+
+--pana aici sunt cele din ceri
+--recompileaza
+--ALTER PROCEDURE nume_procedura COMPILE;
+
+begin
+proiectSGBD.createMember('Vlad','Munteanu','0727587574','Brasov','Ion Mihalache');
+end;
+
+begin
+DBMS_OUTPUT.put_line(proiectSGBD.memberExists('Vlad','Munteanu','0727587574','Brasov','Ion Mihalache'));
+end;
+
+-- fa cerere de marire si adauga : triggeri mai grei 
 
